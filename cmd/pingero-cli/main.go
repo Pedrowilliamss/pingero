@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"strconv"
@@ -12,7 +11,13 @@ import (
 	"time"
 )
 
-const monitoramentos = 3
+type Command int
+
+const (
+	CmdStart Command = 1
+	CmdView  Command = 2
+	CmdStop  Command = 3
+)
 
 func main() {
 	exibeIntroducao()
@@ -21,12 +26,12 @@ func main() {
 		exibeMenu()
 
 		switch leComando() {
-		case 1:
+		case CmdStart:
 			iniciarMonitoramento()
-		case 2:
+		case CmdView:
 			fmt.Println("Exibindo logs...")
 			imprimeLogs()
-		case 0:
+		case CmdStop:
 			fmt.Println("Saindo do programa")
 			os.Exit(0)
 		default:
@@ -49,10 +54,12 @@ func exibeMenu() {
 	fmt.Println("0- Sair do Programa")
 }
 
-func leComando() (comando int) {
-	fmt.Scan(&comando)
+func leComando() Command {
+	var command int
+	fmt.Scan(&command)
 	fmt.Println("")
-	return
+
+	return Command(command)
 }
 
 func iniciarMonitoramento() {
@@ -60,7 +67,7 @@ func iniciarMonitoramento() {
 
 	sites := leSitesDoArquivo()
 
-	for range monitoramentos {
+	for {
 		for _, site := range sites {
 			testaSite(site)
 		}
@@ -115,7 +122,7 @@ func registraLog(site string, status bool) {
 }
 
 func imprimeLogs() {
-	arquivo, err := ioutil.ReadFile("log.txt")
+	arquivo, err := os.ReadFile("log.txt")
 	if err != nil {
 		fmt.Println(err)
 	}
