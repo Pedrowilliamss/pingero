@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestFileLogger(t *testing.T) {
@@ -62,7 +63,7 @@ func TestFileLogger(t *testing.T) {
 
 		sut.AppendMessage(message)
 
-		got := strings.Split(returnLastRow(t, file.Name()), LOG_SEPARATOR_SYMBOL)
+		got := strings.Split(returnLastRow(t, file.Name()), MESSAGE_SEPARATOR_SYMBOL)
 		gotedTimestamp, gotedMessage := got[0], got[1]
 
 		if !timestampRegex.MatchString(gotedTimestamp) {
@@ -80,6 +81,14 @@ func (s mockLogMessage) Content() string {
 
 func (s mockLogMessage) String() string {
 	return string(s)
+}
+
+func (s mockLogMessage) GetStatus() bool {
+	return false
+}
+
+func (s mockLogMessage) GetResonseTime() time.Duration {
+	return time.Duration(0)
 }
 
 func toEqual[T comparable](t *testing.T, got, want T) {
@@ -111,5 +120,5 @@ func returnLastRow(t *testing.T, dir string) string {
 }
 
 func removeTimestampFromRow(message string) string {
-	return strings.Split(message, LOG_SEPARATOR_SYMBOL)[1]
+	return strings.Split(message, MESSAGE_SEPARATOR_SYMBOL)[1]
 }
