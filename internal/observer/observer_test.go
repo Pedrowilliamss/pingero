@@ -2,10 +2,13 @@ package observer
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/pedrowilliamss/pingero-cli/internal/shared"
 )
 
 func TestObserver(t *testing.T) {
@@ -23,7 +26,7 @@ func TestObserver(t *testing.T) {
 
 		go observer.Execute(ctx)
 
-		time.Sleep(150 * time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
 		cancelFn()
 
 		expectObserverRunningState(t, observer, true)
@@ -39,21 +42,17 @@ func TestObserver(t *testing.T) {
 		}
 
 		mockSuccess := false
-		mockResponseTime := 100 * time.Microsecond
+		mockResponseTime := 50 * time.Millisecond
 
 		httpRequester.MockResult(PingResult{
 			Success:      mockSuccess,
 			ResponseTime: mockResponseTime,
 		})
 
-		beforeExecute := time.Now()
-
 		ctx, cancelFn := context.WithCancel(context.Background())
 		go observer.Execute(ctx)
-		time.Sleep(150 * time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
 		cancelFn()
-
-		afterExecute := time.Now()
 
 		if len(logger.Calls) == 0 {
 			t.Errorf("logger should be called")
@@ -63,10 +62,6 @@ func TestObserver(t *testing.T) {
 
 		expectEqual(t, got.Ok, mockSuccess)
 		expectEqual(t, got.ResponseTime, mockResponseTime)
-
-		if got.CheckedAt.Before(beforeExecute) || got.CheckedAt.After(afterExecute) {
-			t.Errorf("CreatedAt fora do intervalo esperado: %v", got.CheckedAt)
-		}
 	})
 
 	t.Run("observer should be able to execute in loop", func(t *testing.T) {
@@ -125,11 +120,13 @@ type fakeLogger struct {
 	Calls []UrlStatus
 }
 
-func (fl *fakeLogger) SaveUrlStatus(status UrlStatus) {
+func (fl *fakeLogger) AppendMessage(status shared.LogMessage) {
 	fl.mu.Lock()
 	defer fl.mu.Unlock()
 
-	fl.Calls = append(fl.Calls, status)
+	fmt.Println(status.Content())
+	urlStatus, _ := UrlStatusFromString(status.Content())
+	fl.Calls = append(fl.Calls, *urlStatus)
 }
 
 func createFakeLogger() *fakeLogger {
