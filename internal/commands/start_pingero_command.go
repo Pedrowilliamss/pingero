@@ -43,7 +43,7 @@ func (spc *StartPingeroCommand) Start(urls []string) map[string]string {
 func (spc *StartPingeroCommand) verifyRequiredDirectories() ([]string, bool) {
 	spc.publishMessage(VERIFY_DIRECTORIES)
 
-	directoriesToCreat := make([]string, 0, 5)
+	directoriesToCreat := make([]string, 0, 1)
 
 	loggerDirExists := dirExists(logger.LOGGER_DIR)
 	if !loggerDirExists {

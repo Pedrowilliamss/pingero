@@ -75,10 +75,12 @@ type Observer struct {
 	logger        ObserverLogger
 	httpRequester HttpRequester
 	running       bool
+	cancelFunc    context.CancelFunc
 }
 
 func (o *Observer) Execute(ctx context.Context) {
 	o.running = true
+	ctx, o.cancelFunc = context.WithCancel(ctx)
 
 	ticker := time.NewTicker(1 * time.Millisecond)
 	defer ticker.Stop()
@@ -93,6 +95,13 @@ func (o *Observer) Execute(ctx context.Context) {
 			o.logger.AppendMessage(urlStatus)
 		}
 	}
+}
+
+func (o *Observer) Stop() {
+	if o.cancelFunc != nil {
+		o.cancelFunc()
+	}
+	o.running = false
 }
 
 func (o *Observer) IsRunning() bool {
