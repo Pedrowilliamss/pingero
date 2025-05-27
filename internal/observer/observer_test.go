@@ -24,7 +24,7 @@ func TestObserver(t *testing.T) {
 
 		ctx, cancelFn := context.WithCancel(context.Background())
 
-		go observer.Execute(ctx)
+		go observer.Execute(ctx, 1*time.Second)
 
 		time.Sleep(50 * time.Millisecond)
 		cancelFn()
@@ -50,7 +50,7 @@ func TestObserver(t *testing.T) {
 		})
 
 		ctx, cancelFn := context.WithCancel(context.Background())
-		go observer.Execute(ctx)
+		go observer.Execute(ctx, 1*time.Second)
 		time.Sleep(50 * time.Millisecond)
 		cancelFn()
 
@@ -89,7 +89,7 @@ func TestObserver(t *testing.T) {
 			}
 		}()
 
-		observer.Execute(ctx)
+		observer.Execute(ctx, 1*time.Second)
 
 		mockHttpRequester.mu.Lock()
 		gotCall := len(mockHttpRequester.Calls)

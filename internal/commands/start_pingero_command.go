@@ -22,16 +22,17 @@ const (
 )
 
 type StartPingeroCommand struct {
-	MessageConsumer io.Writer
+	MessagePublisher io.Writer
 }
 
 func (spc *StartPingeroCommand) Start(urls []string) map[string]string {
-	urlFileMap := make(map[string]string, 10)
+	urlFileMap := make(map[string]string, len(urls))
 	directoriesToCreat, ok := spc.verifyRequiredDirectories()
 	if !ok {
 		spc.createRequiredDirectories(directoriesToCreat)
 	}
 
+	spc.publishMessage(CHECKING_URL_FILE_LOG)
 	for _, url := range urls {
 		urlFileMap[url] = spc.createFileLogger(url)
 	}
@@ -70,8 +71,6 @@ func (spc *StartPingeroCommand) createRequiredDirectories(directories []string) 
 }
 
 func (spc *StartPingeroCommand) createFileLogger(url string) string {
-	spc.publishMessage(CHECKING_URL_FILE_LOG)
-
 	hashFileName := sha256.Sum256([]byte(url))
 	stringFileName := hex.EncodeToString(hashFileName[:]) + ".log"
 
@@ -106,7 +105,7 @@ func (spc *StartPingeroCommand) createFileLogger(url string) string {
 }
 
 func (spc *StartPingeroCommand) publishMessage(message StartPingeroCommandMessage) {
-	spc.MessageConsumer.Write([]byte(message + "\n"))
+	spc.MessagePublisher.Write([]byte(message + "\n"))
 }
 
 func dirExists(path string) bool {

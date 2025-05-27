@@ -78,11 +78,15 @@ type Observer struct {
 	cancelFunc    context.CancelFunc
 }
 
-func (o *Observer) Execute(ctx context.Context) {
+func (o *Observer) Execute(ctx context.Context, tickerTime time.Duration) {
 	o.running = true
 	ctx, o.cancelFunc = context.WithCancel(ctx)
 
-	ticker := time.NewTicker(1 * time.Millisecond)
+	if tickerTime == 0 {
+		tickerTime = 1 * time.Second
+	}
+
+	ticker := time.NewTicker(tickerTime)
 	defer ticker.Stop()
 
 	for {

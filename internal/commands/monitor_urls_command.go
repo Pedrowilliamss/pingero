@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/pedrowilliamss/pingero-cli/internal/infra"
 	"github.com/pedrowilliamss/pingero-cli/internal/logger"
@@ -21,18 +22,33 @@ const (
 )
 
 type MonitorUrlsCommand struct {
-	MessageConsumer io.Writer
-	Urls            map[string]string
-	observersMap    map[string]*observer.Observer
-	mutex           sync.Mutex
+	MessagePublisher io.Writer
+	Urls             map[string]string
+	observersMap     map[string]*observer.Observer
+	mutex            sync.Mutex
+	cancelFn         context.CancelFunc
+	isRunning        bool
 }
 
-func (muc *MonitorUrlsCommand) MonitorUrls() {
+func (muc *MonitorUrlsCommand) Execute() {
 	muc.publishMessage(CREATING_PENDING_OBSERVERS)
 	muc.createPendingObservers()
 
 	muc.publishMessage(EXECUTING_OBSERVERS)
-	muc.executeObservers()
+	_, muc.cancelFn = muc.executeObservers()
+	muc.isRunning = true
+}
+
+func (muc *MonitorUrlsCommand) Stop() {
+	muc.mutex.Lock()
+	defer muc.mutex.Unlock()
+
+	muc.cancelFn()
+	muc.isRunning = false
+}
+
+func (muc *MonitorUrlsCommand) IsRunning() bool {
+	return muc.isRunning
 }
 
 func (muc *MonitorUrlsCommand) createPendingObservers() {
@@ -58,7 +74,7 @@ func (muc *MonitorUrlsCommand) executeObservers() (context.Context, context.Canc
 	generalCtx, generalCancelFn := context.WithCancel(context.Background())
 	for _, observer := range muc.observersMap {
 		if !observer.IsRunning() {
-			go observer.Execute(generalCtx)
+			go observer.Execute(generalCtx, 4*time.Second)
 		}
 	}
 
@@ -82,15 +98,15 @@ func (muc *MonitorUrlsCommand) AddUrl(url string, fileName string) {
 
 func CreateMonitorUrlsCommand(messageConsumer io.Writer, urlsMap map[string]string) *MonitorUrlsCommand {
 	return &MonitorUrlsCommand{
-		MessageConsumer: messageConsumer,
-		Urls:            urlsMap,
-		observersMap:    make(map[string]*observer.Observer),
-		mutex:           sync.Mutex{},
+		MessagePublisher: messageConsumer,
+		Urls:             urlsMap,
+		observersMap:     make(map[string]*observer.Observer),
+		mutex:            sync.Mutex{},
 	}
 }
 
 func (spc *MonitorUrlsCommand) publishMessage(message MonitorUrlsCommandMessage) {
-	spc.MessageConsumer.Write([]byte(message + "\n"))
+	spc.MessagePublisher.Write([]byte(message + "\n"))
 }
 
 func creatingPendingObserverMessage(url string) MonitorUrlsCommandMessage {
