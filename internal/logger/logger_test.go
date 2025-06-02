@@ -13,7 +13,7 @@ func TestFileLogger(t *testing.T) {
 		file := createTempFile(t)
 		defer file.Close()
 
-		sut := logger{
+		sut := Logger{
 			file: file,
 		}
 
@@ -29,7 +29,7 @@ func TestFileLogger(t *testing.T) {
 		file := createTempFile(t)
 		defer file.Close()
 
-		sut := logger{
+		sut := Logger{
 			file: file,
 		}
 
@@ -55,7 +55,7 @@ func TestFileLogger(t *testing.T) {
 
 		timestampRegex := regexp.MustCompile(`^\[[A-Z][a-z]{2}, \d{2} [A-Z][a-z]{2} \d{4} \d{2}:\d{2}:\d{2} [-+]\d{2}\]$`)
 
-		sut := logger{
+		sut := Logger{
 			file: file,
 		}
 

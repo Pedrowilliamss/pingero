@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/pedrowilliamss/pingero-cli/internal/aggregations"
 	"github.com/pedrowilliamss/pingero-cli/internal/logger"
 )
 
@@ -18,6 +19,7 @@ const (
 	CREATING_DIRECTORIES  StartPingeroCommandMessage = "Creating required directories..."
 	CHECKING_URL_FILE_LOG StartPingeroCommandMessage = "Checking urls file log"
 	CREATING_URL_FILE_LOG StartPingeroCommandMessage = "Creating file log for the %s url"
+	CREATING_OBSERVER     StartPingeroCommandMessage = "Creating observer for the %s url"
 	SETTINGS_COMPLETED    StartPingeroCommandMessage = "Settings completed!! 🚀"
 )
 
@@ -25,24 +27,28 @@ type StartPingeroCommand struct {
 	MessagePublisher io.Writer
 }
 
-func (spc *StartPingeroCommand) Start(urls []string) map[string]string {
-	urlFileMap := make(map[string]string, len(urls))
-	directoriesToCreat, ok := spc.verifyRequiredDirectories()
+func (c *StartPingeroCommand) Execute(urls []string) map[string]*aggregations.UrlAggregate {
+	urlAggregationMap := make(map[string]*aggregations.UrlAggregate, len(urls))
+	directoriesToCreat, ok := c.verifyRequiredDirectories()
 	if !ok {
-		spc.createRequiredDirectories(directoriesToCreat)
+		c.createRequiredDirectories(directoriesToCreat)
 	}
 
-	spc.publishMessage(CHECKING_URL_FILE_LOG)
+	c.publishMessage(CHECKING_URL_FILE_LOG)
 	for _, url := range urls {
-		urlFileMap[url] = spc.createFileLogger(url)
+		c.publishMessage(creatingUrlFileMessage(url))
+		fileName := c.createFileLogger(url)
+
+		c.publishMessage(creatingObserverMessage(url))
+		urlAggregationMap[url] = aggregations.CreateUrlAggregate(url, fileName)
 	}
 
-	spc.publishMessage(SETTINGS_COMPLETED)
-	return urlFileMap
+	c.publishMessage(SETTINGS_COMPLETED)
+	return urlAggregationMap
 }
 
-func (spc *StartPingeroCommand) verifyRequiredDirectories() ([]string, bool) {
-	spc.publishMessage(VERIFY_DIRECTORIES)
+func (c *StartPingeroCommand) verifyRequiredDirectories() ([]string, bool) {
+	c.publishMessage(VERIFY_DIRECTORIES)
 
 	directoriesToCreat := make([]string, 0, 1)
 
@@ -54,8 +60,8 @@ func (spc *StartPingeroCommand) verifyRequiredDirectories() ([]string, bool) {
 	return directoriesToCreat, len(directoriesToCreat) == 0
 }
 
-func (spc *StartPingeroCommand) createRequiredDirectories(directories []string) {
-	spc.publishMessage(CREATING_DIRECTORIES)
+func (c *StartPingeroCommand) createRequiredDirectories(directories []string) {
+	c.publishMessage(CREATING_DIRECTORIES)
 
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -70,7 +76,7 @@ func (spc *StartPingeroCommand) createRequiredDirectories(directories []string) 
 	}
 }
 
-func (spc *StartPingeroCommand) createFileLogger(url string) string {
+func (c *StartPingeroCommand) createFileLogger(url string) string {
 	hashFileName := sha256.Sum256([]byte(url))
 	stringFileName := hex.EncodeToString(hashFileName[:]) + ".log"
 
@@ -93,7 +99,6 @@ func (spc *StartPingeroCommand) createFileLogger(url string) string {
 			panic(err)
 		}
 
-		spc.publishMessage(creatingUrlFileMessage(url))
 		f, err = os.Create(fileName)
 
 		if err != nil {
@@ -104,8 +109,8 @@ func (spc *StartPingeroCommand) createFileLogger(url string) string {
 	return fileName
 }
 
-func (spc *StartPingeroCommand) publishMessage(message StartPingeroCommandMessage) {
-	spc.MessagePublisher.Write([]byte(message + "\n"))
+func (c *StartPingeroCommand) publishMessage(message StartPingeroCommandMessage) {
+	c.MessagePublisher.Write([]byte(message + "\n"))
 }
 
 func dirExists(path string) bool {
@@ -118,5 +123,10 @@ func dirExists(path string) bool {
 
 func creatingUrlFileMessage(url string) StartPingeroCommandMessage {
 	message := fmt.Sprintf(string(CREATING_URL_FILE_LOG), url)
+	return StartPingeroCommandMessage(message)
+}
+
+func creatingObserverMessage(url string) StartPingeroCommandMessage {
+	message := fmt.Sprintf(string(CREATING_OBSERVER), url)
 	return StartPingeroCommandMessage(message)
 }
