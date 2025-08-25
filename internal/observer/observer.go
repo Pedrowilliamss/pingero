@@ -3,88 +3,61 @@ package observer
 import (
 	"context"
 	"fmt"
-	"strconv"
-	"strings"
+	"io"
 	"time"
-
-	"github.com/pedrowilliamss/pingero-cli/internal/shared"
 )
 
-type ObserverLogger interface {
-	AppendMessage(statusLogger shared.LogMessage)
+type Register interface {
+	Push(record *UrlStatus)
+	GetContent() []*UrlStatus
+	FlushAndClear()
 }
 
 type HttpRequester interface {
-	Ping(url string) PingResult
+	Ping(url string) *PingResult
 }
 
 type UrlStatus struct {
-	Ok           bool
+	Url          string
+	Up           bool
+	StatusCode   int
 	ResponseTime time.Duration
+	CheckedAt    time.Time
 }
 
-func (us UrlStatus) Content() string {
-	status := "Down"
-	if us.Ok {
-		status = "Up"
-	}
-	return fmt.Sprintf("Status: %s Response Time: %dms", status, us.ResponseTime.Milliseconds())
-}
-
-func UrlStatusFromString(s string) (*UrlStatus, error) {
-	var us UrlStatus
-
-	parts := strings.Fields(s)
-	if len(parts) != 5 {
-		return nil, fmt.Errorf("invalid format")
+func (u *UrlStatus) ToBinary() []byte {
+	status := "down"
+	if u.Up {
+		status = "up"
 	}
 
-	statusStr := parts[1]
-	switch statusStr {
-	case "Up":
-		us.Ok = true
-	case "Down":
-		us.Ok = false
-	default:
-		return nil, fmt.Errorf("invalid status: %s", statusStr)
-	}
-
-	timeStr := parts[4]
-	if !strings.HasSuffix(timeStr, "ms") {
-		return nil, fmt.Errorf("invalid response time: %s", timeStr)
-	}
-
-	timeNumStr := strings.TrimSuffix(timeStr, "ms")
-	ms, err := strconv.Atoi(timeNumStr)
-	if err != nil {
-		return nil, fmt.Errorf("invalid response time: %v", err)
-	}
-
-	us.ResponseTime = time.Duration(ms) * time.Millisecond
-
-	return &us, nil
+	return fmt.Appendf(nil,
+		"[%s] %s: status: %s status_code: %d response_time: %s",
+		u.CheckedAt.Format(time.RFC1123),
+		u.Url,
+		status,
+		u.StatusCode,
+		u.ResponseTime,
+	)
 }
 
 type PingResult struct {
 	Success      bool
+	StatusCode   int
 	ResponseTime time.Duration
 }
 
 type Observer struct {
-	Url           string
-	logger        ObserverLogger
+	url           string
+	register      Register
 	httpRequester HttpRequester
 	running       bool
-	cancelFunc    context.CancelFunc
+	viewer        chan<- UrlStatus
 }
 
-func (o *Observer) Execute(ctx context.Context, tickerTime time.Duration) {
+func (o *Observer) Run(ctx context.Context, tickerTime time.Duration) {
 	o.running = true
-	ctx, o.cancelFunc = context.WithCancel(ctx)
-
-	if tickerTime == 0 {
-		tickerTime = 1 * time.Second
-	}
+	o.ping()
 
 	ticker := time.NewTicker(tickerTime)
 	defer ticker.Stop()
@@ -95,37 +68,46 @@ func (o *Observer) Execute(ctx context.Context, tickerTime time.Duration) {
 			o.running = false
 			return
 		case <-ticker.C:
-			urlStatus := o.checkUrlStatus()
-			o.logger.AppendMessage(urlStatus)
+			o.ping()
 		}
 	}
 }
 
 func (o *Observer) Stop() {
-	if o.cancelFunc != nil {
-		o.cancelFunc()
-	}
 	o.running = false
+	o.register.FlushAndClear()
 }
 
 func (o *Observer) IsRunning() bool {
 	return o.running
 }
 
-func (o *Observer) checkUrlStatus() UrlStatus {
-	pingResult := o.httpRequester.Ping(o.Url)
+func (o *Observer) GetCurrentStatus() []*UrlStatus {
+	return o.register.GetContent()
+}
 
-	return UrlStatus{
-		Ok:           pingResult.Success,
+func (o *Observer) ping() {
+	pingResult := o.httpRequester.Ping(o.url)
+	status := UrlStatus{
+		Url:          o.url,
+		Up:           pingResult.Success,
+		StatusCode:   pingResult.StatusCode,
 		ResponseTime: pingResult.ResponseTime,
+		CheckedAt:    time.Now(),
+	}
+	o.register.Push(&status)
+
+	if o.viewer != nil {
+		o.viewer <- status
 	}
 }
 
-func CreateObserver(Url string, logger ObserverLogger, httpRequester HttpRequester) *Observer {
+func CreateObserver(Url string, repository io.Writer, httpRequester HttpRequester, viewer chan<- UrlStatus) *Observer {
 	return &Observer{
-		Url:           Url,
-		logger:        logger,
+		url:           Url,
+		register:      BufferFrom[*UrlStatus](repository),
 		httpRequester: httpRequester,
 		running:       false,
+		viewer:        viewer,
 	}
 }

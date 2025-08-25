@@ -19,7 +19,7 @@ func TestHttpRequester_Ping(t *testing.T) {
 
 		got := httpRequesterFn.Ping(ts.URL)
 
-		expecPingResult(t, got, observer.PingResult{
+		expecPingResult(t, got, &observer.PingResult{
 			Success:      true,
 			ResponseTime: responseTime,
 		})
@@ -32,7 +32,7 @@ func TestHttpRequester_Ping(t *testing.T) {
 
 		got := httpRequesterFn.Ping(ts.URL)
 
-		expecPingResult(t, got, observer.PingResult{
+		expecPingResult(t, got, &observer.PingResult{
 			Success:      false,
 			ResponseTime: responseTime,
 		})
@@ -41,7 +41,7 @@ func TestHttpRequester_Ping(t *testing.T) {
 	t.Run("Ping shoudl return a failue when the url its wrong", func(t *testing.T) {
 		got := httpRequesterFn.Ping("invalid-url")
 
-		expecPingResult(t, got, observer.PingResult{
+		expecPingResult(t, got, &observer.PingResult{
 			Success:      false,
 			ResponseTime: 0,
 		})
@@ -55,7 +55,7 @@ func createFakeServer(statusCode int, responseTime time.Duration) *httptest.Serv
 	}))
 }
 
-func expecPingResult(t *testing.T, got, want observer.PingResult) {
+func expecPingResult(t *testing.T, got, want *observer.PingResult) {
 	t.Helper()
 
 	if got.Success != want.Success {
