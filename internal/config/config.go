@@ -5,13 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path"
-	"path/filepath"
-	"strings"
 	"sync"
-)
 
-var main_dir, configPath, configFile, logPath string
+	"github.com/pedrowilliamss/pingero-cli/internal/config/paths"
+)
 
 type UrlConfig struct {
 	Url        string `json:"url"`
@@ -19,8 +16,9 @@ type UrlConfig struct {
 }
 
 type PingeroConfig struct {
-	Urls map[string]UrlConfig `json:"urls"`
-	mux  sync.Mutex           `json:"-"`
+	Paths *paths.Paths
+	Urls  map[string]UrlConfig `json:"urls"`
+	mux   sync.Mutex           `json:"-"`
 }
 
 func (p *PingeroConfig) AddUrl(url string) *UrlConfig {
@@ -33,7 +31,7 @@ func (p *PingeroConfig) AddUrl(url string) *UrlConfig {
 
 	newUrlConfig := UrlConfig{
 		Url:        url,
-		LoggerFile: createLoggerFileName(url),
+		LoggerFile: p.Paths.GenerateLogfileNameFor(url),
 	}
 	p.Urls[url] = newUrlConfig
 
@@ -44,45 +42,14 @@ func (p *PingeroConfig) RemoveUrl(url string) {
 	p.mux.Lock()
 	defer p.mux.Unlock()
 
-	if _, ok := p.Urls[url]; !ok {
-		return
-	}
 	delete(p.Urls, url)
 }
 
-func CreateLoggerFiler(url string) *os.File {
-	file, err := os.Create(filepath.Join(logPath, createLoggerFileName(url)))
-	if err != nil {
-		panic(err)
-	}
-
-	return file
-}
-
-func createLoggerFileName(url string) string {
-	err := os.MkdirAll(logPath, 0o755)
-	if err != nil {
-		panic(err)
-	}
-	return fmt.Sprintf("%s.log", sanitizeUrl(url))
-}
-
-func sanitizeUrl(url string) string {
-	tokens := make([]string, 0, 2)
-	for _, token := range strings.Split(strings.Split(url, "//")[1], ".") {
-		tokens = append(tokens, strings.Split(token, "/")...)
-	}
-
-	return strings.Join(tokens, "_")
-}
-
-func CreatePingeroConfigFromFileSystem() (*PingeroConfig, error) {
-	resolvePath()
-
-	data, err := os.ReadFile(configFile)
+func CreatePingeroConfigFromFileSystem(paths *paths.Paths) (*PingeroConfig, error) {
+	data, err := os.ReadFile(paths.ConfigFilePath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			pingeroConfig := NewConfig()
+			pingeroConfig := NewConfig(paths)
 			PingeroConfigToFile(pingeroConfig)
 
 			return pingeroConfig, nil
@@ -106,31 +73,25 @@ func PingeroConfigToFile(pingeroConfig *PingeroConfig) {
 		panic(err)
 	}
 
-	err = os.MkdirAll(configPath, 0o755)
+	err = os.MkdirAll(pingeroConfig.Paths.Base, 0o755)
+	if err != nil {
+		panic(err)
+	}
+	err = os.MkdirAll(pingeroConfig.Paths.Logs(), 0o755)
 	if err != nil {
 		panic(err)
 	}
 
-	err = os.WriteFile(configFile, data, 0o644)
+	err = os.WriteFile(pingeroConfig.Paths.ConfigFilePath, data, 0o644)
 	if err != nil {
 		panic(err)
 	}
 }
 
-func NewConfig() *PingeroConfig {
+func NewConfig(paths *paths.Paths) *PingeroConfig {
 	return &PingeroConfig{
-		Urls: make(map[string]UrlConfig, 10),
-		mux:  sync.Mutex{},
+		Urls:  make(map[string]UrlConfig, 10),
+		Paths: paths,
+		mux:   sync.Mutex{},
 	}
-}
-
-func resolvePath() {
-	main_dir, err := os.UserHomeDir()
-	if err != nil {
-		panic(err)
-	}
-
-	configPath = path.Join(main_dir, "pingero")
-	configFile = path.Join(configPath, "pingero_config.json")
-	logPath = path.Join(main_dir, "logs")
 }

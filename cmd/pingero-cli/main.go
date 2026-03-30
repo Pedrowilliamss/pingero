@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	pingero "github.com/pedrowilliamss/pingero-cli/internal"
+	"github.com/pedrowilliamss/pingero-cli/internal/config/paths"
 	"github.com/pedrowilliamss/pingero-cli/internal/observer"
 	"github.com/pedrowilliamss/pingero-cli/internal/presenter"
 )
@@ -25,11 +26,12 @@ func logging(urls []string) {
 }
 
 func main() {
-	resolveParams()
+	flags := parseFlags()
 
 	pingero, err := pingero.CreatePingero(
-		pingero.WithURLs(urlsArgs),
+		pingero.WithURLs(flags.urls),
 		pingero.WithChannel(viewerCH),
+		pingero.WithPaths(flags.paths),
 	)
 	if err != nil {
 		panic(err)
@@ -42,7 +44,19 @@ func main() {
 	shutdown()
 }
 
+func shutdown() {
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
+
+	<-stop
+}
+
 type urlsFlag []string
+
+type Flags struct {
+	paths *paths.Paths
+	urls  urlsFlag
+}
 
 func (u *urlsFlag) String() string {
 	return strings.Join(*u, ", ")
@@ -53,16 +67,13 @@ func (i *urlsFlag) Set(value string) error {
 	return nil
 }
 
-var urlsArgs urlsFlag
+func parseFlags() *Flags {
+	c := Flags{}
+	c.paths = paths.New()
 
-func resolveParams() {
-	flag.Var(&urlsArgs, "url", "URLs that should be noted")
+	flag.Var(&c.urls, "url", "URLs that should be noted")
+	flag.StringVar(&c.paths.ConfigFilePath, "config", paths.DefaultConfigFilePath(), "Path to the configuration file")
 	flag.Parse()
-}
 
-func shutdown() {
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
-
-	<-stop
+	return &c
 }
