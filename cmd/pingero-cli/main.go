@@ -8,7 +8,7 @@ import (
 	"syscall"
 
 	pingero "github.com/pedrowilliamss/pingero-cli/internal"
-	"github.com/pedrowilliamss/pingero-cli/internal/config/paths"
+	"github.com/pedrowilliamss/pingero-cli/internal/config"
 	"github.com/pedrowilliamss/pingero-cli/internal/observer"
 	"github.com/pedrowilliamss/pingero-cli/internal/presenter"
 )
@@ -54,7 +54,7 @@ func shutdown() {
 type urlsFlag []string
 
 type Flags struct {
-	paths *paths.Paths
+	paths *config.Paths
 	urls  urlsFlag
 }
 
@@ -69,10 +69,10 @@ func (i *urlsFlag) Set(value string) error {
 
 func parseFlags() *Flags {
 	c := Flags{}
-	c.paths = paths.New()
+	c.paths = config.PathWithDefaults()
 
 	flag.Var(&c.urls, "url", "URLs that should be noted")
-	flag.StringVar(&c.paths.ConfigFilePath, "config", paths.DefaultConfigFilePath(), "Path to the configuration file")
+	flag.StringVar(&c.paths.ConfigFilePath, "config", config.DefaultConfigFilePath(), "Path to the configuration file")
 	flag.Parse()
 
 	return &c

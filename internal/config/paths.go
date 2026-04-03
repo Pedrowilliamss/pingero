@@ -1,4 +1,4 @@
-package paths
+package config
 
 import (
 	"fmt"
@@ -13,12 +13,12 @@ type Paths struct {
 	ConfigFilePath string
 }
 
-func New() *Paths {
-	return WithBase(DefaultBase())
+func PathWithDefaults() *Paths {
+	return PathWithBase(DefaultPathBase())
 }
 
 // Gets the default base directory for path
-func DefaultBase() string {
+func DefaultPathBase() string {
 	base, err := os.UserHomeDir()
 	if err != nil {
 		panic(err)
@@ -29,11 +29,11 @@ func DefaultBase() string {
 
 // Returns the default config file location
 func DefaultConfigFilePath() string {
-	return path.Join(DefaultBase(), "config.json")
+	return path.Join(DefaultPathBase(), "config.json")
 }
 
 // Gets the main paths using the provided directory as a base
-func WithBase(base string) *Paths {
+func PathWithBase(base string) *Paths {
 	return &Paths{
 		Base:           base,
 		ConfigFilePath: DefaultConfigFilePath(),
@@ -41,24 +41,24 @@ func WithBase(base string) *Paths {
 }
 
 // Logs returns the path to the logs directory
-func (p *Paths) Logs() string {
+func (p *Paths) LogPath() string {
 	return path.Join(p.Base, "logs")
 }
 
 // Creates a log file for the provided URL
-func (p *Paths) CreateLogfileFor(url string) *os.File {
-	logPath := p.Logs()
+func (p *Paths) CreateLogfileFor(url string) (*os.File, error) {
+	logPath := p.LogPath()
 	err := os.MkdirAll(logPath, 0o755)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	file, err := os.Create(filepath.Join(logPath, p.GenerateLogfileNameFor(url)))
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	return file
+	return file, nil
 }
 
 func (p *Paths) GenerateLogfileNameFor(url string) string {

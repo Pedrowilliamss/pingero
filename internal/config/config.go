@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"os"
 	"sync"
-
-	"github.com/pedrowilliamss/pingero-cli/internal/config/paths"
 )
 
 type UrlConfig struct {
@@ -16,7 +14,7 @@ type UrlConfig struct {
 }
 
 type PingeroConfig struct {
-	Paths *paths.Paths
+	Paths *Paths
 	Urls  map[string]UrlConfig `json:"urls"`
 	mux   sync.Mutex           `json:"-"`
 }
@@ -45,12 +43,15 @@ func (p *PingeroConfig) RemoveUrl(url string) {
 	delete(p.Urls, url)
 }
 
-func CreatePingeroConfigFromFileSystem(paths *paths.Paths) (*PingeroConfig, error) {
+func CreatePingeroConfigFromFileSystem(paths *Paths) (*PingeroConfig, error) {
 	data, err := os.ReadFile(paths.ConfigFilePath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			pingeroConfig := NewConfig(paths)
-			PingeroConfigToFile(pingeroConfig)
+			err := PingeroConfigToFile(pingeroConfig)
+			if err != nil {
+				panic(err)
+			}
 
 			return pingeroConfig, nil
 		}
@@ -65,30 +66,32 @@ func CreatePingeroConfigFromFileSystem(paths *paths.Paths) (*PingeroConfig, erro
 	return &config, nil
 }
 
-func PingeroConfigToFile(pingeroConfig *PingeroConfig) {
+func PingeroConfigToFile(pingeroConfig *PingeroConfig) error {
 	fmt.Println(pingeroConfig)
 
 	data, err := json.Marshal(pingeroConfig)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	err = os.MkdirAll(pingeroConfig.Paths.Base, 0o755)
 	if err != nil {
-		panic(err)
+		return err
 	}
-	err = os.MkdirAll(pingeroConfig.Paths.Logs(), 0o755)
+	err = os.MkdirAll(pingeroConfig.Paths.LogPath(), 0o755)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	err = os.WriteFile(pingeroConfig.Paths.ConfigFilePath, data, 0o644)
 	if err != nil {
-		panic(err)
+		return err
 	}
+
+	return nil
 }
 
-func NewConfig(paths *paths.Paths) *PingeroConfig {
+func NewConfig(paths *Paths) *PingeroConfig {
 	return &PingeroConfig{
 		Urls:  make(map[string]UrlConfig, 10),
 		Paths: paths,

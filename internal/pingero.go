@@ -2,13 +2,13 @@ package pingero
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"sync"
 	"time"
 
 	"github.com/pedrowilliamss/pingero-cli/internal/config"
-	"github.com/pedrowilliamss/pingero-cli/internal/config/paths"
 	"github.com/pedrowilliamss/pingero-cli/internal/infra"
 	"github.com/pedrowilliamss/pingero-cli/internal/observer"
 )
@@ -36,13 +36,19 @@ func (p *Pingero) StartObserver(url string) {
 	go observer.Run(context.Background(), 5*time.Second)
 }
 
-func (p *Pingero) AddNewUrl(url string) {
+func (p *Pingero) AddNewUrl(url string) error {
 	if _, ok := p.observersMap[url]; ok {
-		return
+		return nil
+	}
+
+	logfile, err := p.config.Paths.CreateLogfileFor(url)
+	if err != nil {
+		return err
 	}
 
 	p.config.AddUrl(url)
-	p.observersMap[url] = createObserver(p.config.Paths, url, p.urlStatusChannel)
+	p.observersMap[url] = createObserver(url, logfile, p.urlStatusChannel)
+	return nil
 }
 
 func (p *Pingero) RemoveUrl(url string) {
@@ -89,14 +95,14 @@ type PingeroOptionsFunc func(opts *PingeroOptions)
 type PingeroOptions struct {
 	urls             []string
 	urlStatusChannel chan observer.UrlStatus
-	paths            *paths.Paths
+	paths            *config.Paths
 }
 
 func defaultPingeroOptions() *PingeroOptions {
 	return &PingeroOptions{
 		urls:             make([]string, 0),
 		urlStatusChannel: nil,
-		paths:            paths.New(),
+		paths:            config.PathWithDefaults(),
 	}
 }
 
@@ -112,7 +118,7 @@ func WithURLs(urls []string) PingeroOptionsFunc {
 	}
 }
 
-func WithPaths(paths *paths.Paths) PingeroOptionsFunc {
+func WithPaths(paths *config.Paths) PingeroOptionsFunc {
 	return func(p *PingeroOptions) {
 		p.paths = paths
 	}
@@ -155,10 +161,14 @@ func CreatePingero(optionsFn ...PingeroOptionsFunc) (*Pingero, error) {
 	}, nil
 }
 
-func createObserversMap(paths *paths.Paths, urls []string, ch chan<- observer.UrlStatus) map[string]*observer.Observer {
+func createObserversMap(paths *config.Paths, urls []string, ch chan<- observer.UrlStatus) map[string]*observer.Observer {
 	observersMap := make(map[string]*observer.Observer, len(urls))
 	for _, url := range urls {
-		logfile := paths.CreateLogfileFor(url)
+		logfile, err := paths.CreateLogfileFor(url)
+		if err != nil {
+			fmt.Printf("error creating log file for %s: %v\n", url, err.Error())
+			continue
+		}
 		observersMap[url] = createObserver(url, logfile, ch)
 	}
 
