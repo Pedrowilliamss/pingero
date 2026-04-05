@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pedrowilliamss/pingero-cli/internal/observer"
+	"github.com/pedrowilliamss/pingero/internal/observer"
 )
 
 type MetricsTimerPresenter struct {

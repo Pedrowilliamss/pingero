@@ -1,3 +1,3 @@
-module github.com/pedrowilliamss/pingero-cli
+module github.com/pedrowilliamss/pingero
 
 go 1.26.0

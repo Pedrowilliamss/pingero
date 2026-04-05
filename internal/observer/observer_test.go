@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pedrowilliamss/pingero-cli/internal/testutil"
+	"github.com/pedrowilliamss/pingero/internal/testutil"
 )
 
 func TestObserverWithViewer(t *testing.T) {

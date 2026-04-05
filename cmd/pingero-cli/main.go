@@ -7,10 +7,10 @@ import (
 	"strings"
 	"syscall"
 
-	pingero "github.com/pedrowilliamss/pingero-cli/internal"
-	"github.com/pedrowilliamss/pingero-cli/internal/config"
-	"github.com/pedrowilliamss/pingero-cli/internal/observer"
-	"github.com/pedrowilliamss/pingero-cli/internal/presenter"
+	pingero "github.com/pedrowilliamss/pingero/internal"
+	"github.com/pedrowilliamss/pingero/internal/config"
+	"github.com/pedrowilliamss/pingero/internal/observer"
+	"github.com/pedrowilliamss/pingero/internal/presenter"
 )
 
 var viewerCH = make(chan observer.UrlStatus, 1000)

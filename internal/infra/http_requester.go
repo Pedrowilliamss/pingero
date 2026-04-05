@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/pedrowilliamss/pingero-cli/internal/observer"
+	"github.com/pedrowilliamss/pingero/internal/observer"
 )
 
 type HttpRequesterFn func(url string) (resp *http.Response, err error)
