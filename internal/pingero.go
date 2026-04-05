@@ -2,7 +2,9 @@ package pingero
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -34,13 +36,19 @@ func (p *Pingero) StartObserver(url string) {
 	go observer.Run(context.Background(), 5*time.Second)
 }
 
-func (p *Pingero) AddNewUrl(url string) {
+func (p *Pingero) AddNewUrl(url string) error {
 	if _, ok := p.observersMap[url]; ok {
-		return
+		return nil
+	}
+
+	logfile, err := p.config.Paths.CreateLogfileFor(url)
+	if err != nil {
+		return err
 	}
 
 	p.config.AddUrl(url)
-	p.observersMap[url] = createObserver(url, p.urlStatusChannel)
+	p.observersMap[url] = createObserver(url, logfile, p.urlStatusChannel)
+	return nil
 }
 
 func (p *Pingero) RemoveUrl(url string) {
@@ -87,12 +95,14 @@ type PingeroOptionsFunc func(opts *PingeroOptions)
 type PingeroOptions struct {
 	urls             []string
 	urlStatusChannel chan observer.UrlStatus
+	paths            *config.Paths
 }
 
 func defaultPingeroOptions() *PingeroOptions {
 	return &PingeroOptions{
 		urls:             make([]string, 0),
 		urlStatusChannel: nil,
+		paths:            config.PathWithDefaults(),
 	}
 }
 
@@ -108,15 +118,21 @@ func WithURLs(urls []string) PingeroOptionsFunc {
 	}
 }
 
-func CreatePingero(optionsFn ...PingeroOptionsFunc) (*Pingero, error) {
-	pingeroConfig, err := config.CreatePingeroConfigFromFileSystem()
-	if err != nil {
-		return nil, err
+func WithPaths(paths *config.Paths) PingeroOptionsFunc {
+	return func(p *PingeroOptions) {
+		p.paths = paths
 	}
+}
 
+func CreatePingero(optionsFn ...PingeroOptionsFunc) (*Pingero, error) {
 	opts := defaultPingeroOptions()
 	for _, fn := range optionsFn {
 		fn(opts)
+	}
+
+	pingeroConfig, err := config.CreatePingeroConfigFromFileSystem(opts.paths)
+	if err != nil {
+		return nil, err
 	}
 
 	var ch chan observer.UrlStatus
@@ -136,7 +152,7 @@ func CreatePingero(optionsFn ...PingeroOptionsFunc) (*Pingero, error) {
 	for url := range pingeroConfig.Urls {
 		urls = append(urls, url)
 	}
-	observersMap := createObserversMap(append(urls, opts.urls...), ch)
+	observersMap := createObserversMap(opts.paths, append(urls, opts.urls...), ch)
 
 	return &Pingero{
 		config:           pingeroConfig,
@@ -145,15 +161,20 @@ func CreatePingero(optionsFn ...PingeroOptionsFunc) (*Pingero, error) {
 	}, nil
 }
 
-func createObserversMap(urls []string, ch chan<- observer.UrlStatus) map[string]*observer.Observer {
+func createObserversMap(paths *config.Paths, urls []string, ch chan<- observer.UrlStatus) map[string]*observer.Observer {
 	observersMap := make(map[string]*observer.Observer, len(urls))
 	for _, url := range urls {
-		observersMap[url] = createObserver(url, ch)
+		logfile, err := paths.CreateLogfileFor(url)
+		if err != nil {
+			fmt.Printf("error creating log file for %s: %v\n", url, err)
+			continue
+		}
+		observersMap[url] = createObserver(url, logfile, ch)
 	}
 
 	return observersMap
 }
 
-func createObserver(url string, viewer chan<- observer.UrlStatus) *observer.Observer {
-	return observer.CreateObserver(url, config.CreateLoggerFiler(url), httpRequesterFn, viewer)
+func createObserver(url string, logfile *os.File, viewer chan<- observer.UrlStatus) *observer.Observer {
+	return observer.CreateObserver(url, logfile, httpRequesterFn, viewer)
 }
