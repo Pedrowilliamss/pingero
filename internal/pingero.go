@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pedrowilliamss/pingero-cli/internal/config"
-	"github.com/pedrowilliamss/pingero-cli/internal/infra"
-	"github.com/pedrowilliamss/pingero-cli/internal/observer"
+	"github.com/pedrowilliamss/pingero/internal/config"
+	"github.com/pedrowilliamss/pingero/internal/infra"
+	"github.com/pedrowilliamss/pingero/internal/observer"
 )
 
 var httpRequesterFn = infra.HttpRequesterFn(http.Get)

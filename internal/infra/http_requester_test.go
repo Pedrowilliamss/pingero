@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pedrowilliamss/pingero-cli/internal/observer"
+	"github.com/pedrowilliamss/pingero/internal/observer"
 )
 
 var httpRequesterFn = HttpRequesterFn(http.Get)
