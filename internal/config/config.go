@@ -3,7 +3,6 @@ package config
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"sync"
 )
@@ -67,8 +66,6 @@ func CreatePingeroConfigFromFileSystem(paths *Paths) (*PingeroConfig, error) {
 }
 
 func PingeroConfigToFile(pingeroConfig *PingeroConfig) error {
-	fmt.Println(pingeroConfig)
-
 	data, err := json.Marshal(pingeroConfig)
 	if err != nil {
 		return err

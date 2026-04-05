@@ -2,74 +2,91 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 )
 
+// Paths holds the filesystem locations used by pingero.
+// Base is the root directory for all application data; ConfigFilePath
+// is the location of the JSON configuration file.
 type Paths struct {
 	Base           string
 	ConfigFilePath string
 }
 
+// PathWithDefaults returns a Paths rooted at [DefaultPathBase].
 func PathWithDefaults() *Paths {
-	return PathWithBase(DefaultPathBase())
+	base := DefaultPathBase()
+	return &Paths{
+		Base:           base,
+		ConfigFilePath: filepath.Join(base, "config.json"),
+	}
 }
 
-// Gets the default base directory for path
+// PathWithBase returns a Paths rooted at base.
+// If base is empty, it falls back to [PathWithDefaults].
+func PathWithBase(base string) *Paths {
+	if base == "" {
+		return PathWithDefaults()
+	}
+	return &Paths{
+		Base:           base,
+		ConfigFilePath: filepath.Join(base, "config.json"),
+	}
+}
+
+// DefaultPathBase returns the default base directory for application data,
+// which is $HOME/.pingero. It panics if the home directory cannot be determined.
 func DefaultPathBase() string {
-	base, err := os.UserHomeDir()
+	home, err := os.UserHomeDir()
 	if err != nil {
 		panic(err)
 	}
-
-	return path.Join(base, ".pingero")
+	return filepath.Join(home, ".pingero")
 }
 
-// Returns the default config file location
+// DefaultConfigFilePath returns the default path for the configuration file,
+// which is $HOME/.pingero/config.json.
 func DefaultConfigFilePath() string {
-	return path.Join(DefaultPathBase(), "config.json")
+	return filepath.Join(DefaultPathBase(), "config.json")
 }
 
-// Gets the main paths using the provided directory as a base
-func PathWithBase(base string) *Paths {
-	return &Paths{
-		Base:           base,
-		ConfigFilePath: DefaultConfigFilePath(),
-	}
-}
-
-// Logs returns the path to the logs directory
+// LogPath returns the directory where log files are stored.
 func (p *Paths) LogPath() string {
-	return path.Join(p.Base, "logs")
+	return filepath.Join(p.Base, "logs")
 }
 
-// Creates a log file for the provided URL
-func (p *Paths) CreateLogfileFor(url string) (*os.File, error) {
+// CreateLogfileFor creates and returns the log file for the given URL,
+// creating the logs directory if it does not exist.
+func (p *Paths) CreateLogfileFor(rawURL string) (*os.File, error) {
 	logPath := p.LogPath()
-	err := os.MkdirAll(logPath, 0o755)
-	if err != nil {
+	if err := os.MkdirAll(logPath, 0o755); err != nil {
 		return nil, err
 	}
 
-	file, err := os.Create(filepath.Join(logPath, p.GenerateLogfileNameFor(url)))
-	if err != nil {
-		return nil, err
-	}
-
-	return file, nil
+	return os.Create(filepath.Join(logPath, p.GenerateLogfileNameFor(rawURL)))
 }
 
-func (p *Paths) GenerateLogfileNameFor(url string) string {
-	return fmt.Sprintf("%s.log", sanitizeUrl(url))
+// GenerateLogfileNameFor returns the log filename for the given URL.
+func (p *Paths) GenerateLogfileNameFor(rawURL string) string {
+	return fmt.Sprintf("%s.log", sanitizeUrl(rawURL))
 }
 
-func sanitizeUrl(url string) string {
-	tokens := make([]string, 0, 2)
-	for token := range strings.SplitSeq(strings.Split(url, "//")[1], ".") {
-		tokens = append(tokens, strings.Split(token, "/")...)
+// sanitizeUrl converts a URL into a safe filename by replacing special
+// characters with underscores. Falls back to a generic replacer if the URL
+// cannot be parsed or has no host.
+func sanitizeUrl(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Host == "" {
+		return strings.NewReplacer(":", "_", "/", "_", ".", "_").Replace(rawURL)
 	}
 
-	return strings.Join(tokens, "_")
+	host := strings.ReplaceAll(u.Host, ".", "_")
+	trimmed := strings.Trim(u.Path, "/")
+	if trimmed == "" {
+		return host
+	}
+	return host + "_" + strings.ReplaceAll(trimmed, "/", "_")
 }

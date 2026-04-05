@@ -166,7 +166,7 @@ func createObserversMap(paths *config.Paths, urls []string, ch chan<- observer.U
 	for _, url := range urls {
 		logfile, err := paths.CreateLogfileFor(url)
 		if err != nil {
-			fmt.Printf("error creating log file for %s: %v\n", url, err.Error())
+			fmt.Printf("error creating log file for %s: %v\n", url, err)
 			continue
 		}
 		observersMap[url] = createObserver(url, logfile, ch)
